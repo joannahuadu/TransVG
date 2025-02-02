@@ -13,7 +13,8 @@ from typing import Dict, List
 from utils.misc import NestedTensor, is_main_process
 # from .position_encoding import build_position_encoding
 
-from pytorch_pretrained_bert.modeling import BertModel
+# from pytorch_pretrained_bert.modeling import BertModel
+from transformers import BertModel
 
 
 class BERT(nn.Module):
@@ -34,9 +35,9 @@ class BERT(nn.Module):
     def forward(self, tensor_list: NestedTensor):
 
         if self.enc_num > 0:
-            all_encoder_layers, _ = self.bert(tensor_list.tensors, token_type_ids=None, attention_mask=tensor_list.mask)
+            xs = self.bert(tensor_list.tensors, token_type_ids=None, attention_mask=tensor_list.mask).last_hidden_state
             # use the output of the X-th transformer encoder layers
-            xs = all_encoder_layers[self.enc_num - 1]
+            # xs = all_encoder_layers[self.enc_num - 1]
         else:
             xs = self.bert.embeddings.word_embeddings(tensor_list.tensors)
 

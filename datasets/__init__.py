@@ -4,7 +4,7 @@ import torchvision
 from torchvision.transforms import Compose, ToTensor, Normalize
 
 import datasets.transforms as T
-from .data_loader import TransVGDataset
+from .data_loader import TransVGDataset, TransVGDatasetRS
 
 
 def make_transforms(args, image_set, is_onestage=False):
@@ -59,7 +59,13 @@ def make_transforms(args, image_set, is_onestage=False):
 
 
 def build_dataset(split, args):
-    return TransVGDataset(data_root=args.data_root,
+    # return TransVGDataset(data_root=args.data_root,
+    #                     split_root=args.split_root,
+    #                     dataset=args.dataset,
+    #                     split=split,
+    #                     transform=make_transforms(args, split),
+    #                     max_query_len=args.max_query_len)
+    return TransVGDatasetRS(data_root=args.data_root,
                         split_root=args.split_root,
                         dataset=args.dataset,
                         split=split,

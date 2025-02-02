@@ -21,7 +21,8 @@ import torch.utils.data as data
 sys.path.append('.')
 
 from PIL import Image
-from pytorch_pretrained_bert.tokenization import BertTokenizer
+# from pytorch_pretrained_bert.tokenization import BertTokenizer
+from transformers import BertTokenizer
 from utils.word_utils import Corpus
 
 
@@ -235,6 +236,113 @@ class TransVGDataset(data.Dataset):
         # else:
         #     img = np.stack([img] * 3)
 
+        bbox = torch.tensor(bbox)
+        bbox = bbox.float()
+        return img, phrase, bbox 
+
+    def tokenize_phrase(self, phrase):
+        return self.corpus.tokenize(phrase, self.query_len)
+
+    def untokenize_word_vector(self, words):
+        return self.corpus.dictionary[words]
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        img, phrase, bbox = self.pull_item(idx)
+        # phrase = phrase.decode("utf-8").encode().lower()
+        phrase = phrase.lower()
+        input_dict = {'img': img, 'box': bbox, 'text': phrase}
+        input_dict = self.transform(input_dict)
+        img = input_dict['img']
+        bbox = input_dict['box']
+        phrase = input_dict['text']
+        img_mask = input_dict['mask']
+        
+        if self.lstm:
+            phrase = self.tokenize_phrase(phrase)
+            word_id = phrase
+            word_mask = np.array(word_id>0, dtype=int)
+        else:
+            ## encode phrase to bert input
+            examples = read_examples(phrase, idx)
+            features = convert_examples_to_features(
+                examples=examples, seq_length=self.query_len, tokenizer=self.tokenizer)
+            word_id = features[0].input_ids
+            word_mask = features[0].input_mask
+        
+        if self.testmode:
+            return img, np.array(word_id, dtype=int), np.array(word_mask, dtype=int), \
+                np.array(bbox, dtype=np.float32), np.array(ratio, dtype=np.float32), \
+                np.array(dw, dtype=np.float32), np.array(dh, dtype=np.float32), self.images[idx][0]
+        else:
+            # print(img.shape)
+            return img, np.array(img_mask), np.array(word_id, dtype=int), np.array(word_mask, dtype=int), np.array(bbox, dtype=np.float32)
+        
+class TransVGDatasetRS(data.Dataset):
+    SUPPORTED_DATASETS = {
+        'dior_rsvg': {'splits': ('train', 'val', 'trainval', 'test')},
+    }
+
+    def __init__(self, data_root, split_root='metainfo', dataset='dior_rsvgdior_rsvg', 
+                 transform=None, return_idx=False, testmode=False,
+                 split='train', max_query_len=128, lstm=False, 
+                 bert_model='bert-base-uncased'):
+        self.images = []
+        self.data_root = data_root
+        self.split_root = split_root
+        self.dataset = dataset
+        self.query_len = max_query_len
+        self.lstm = lstm
+        self.transform = transform
+        self.testmode = testmode
+        self.split = split
+        self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=True)
+        self.return_idx=return_idx
+
+        assert self.transform is not None
+
+        if split == 'train' or split == 'trainval':
+            self.augment = True
+        else:
+            self.augment = False
+
+        if self.dataset == 'dior_rsvg':
+            self.im_dir = osp.join(self.data_root, 'images/dior_rsvg')
+            assert self.lstm == False
+
+        # dataset_path = osp.join(self.split_root, self.dataset)
+        dataset_path = osp.join(self.data_root, self.split_root)
+        valid_splits = self.SUPPORTED_DATASETS[self.dataset]['splits']
+
+        if self.lstm:
+            self.corpus = Corpus()
+            corpus_path = osp.join(dataset_path, 'corpus.pth')
+            self.corpus = torch.load(corpus_path)
+
+        if split not in valid_splits:
+            raise ValueError(
+                'Dataset {0} does not have split {1}'.format(
+                    self.dataset, split))
+
+        splits = ['train', 'val'] if split == 'trainval' else [split]
+        for split in splits:
+            imgset_file = '{0}_{1}.jsonl'.format(self.dataset, split)
+            imgset_path = osp.join(dataset_path, imgset_file)
+            with open(imgset_path, "r") as file:
+                for line in file:
+                    data = json.loads(line)
+                    self.images.append((data['image_id'], data['bbox'], data['question']))
+
+    def exists_dataset(self):
+        return osp.exists(osp.join(self.split_root, self.dataset))
+
+    def pull_item(self, idx):
+        img_file, bbox, phrase = self.images[idx]
+        bbox = np.array(bbox, dtype=int)
+        img_path = osp.join(self.im_dir, img_file)
+        img = Image.open(img_path).convert("RGB")
         bbox = torch.tensor(bbox)
         bbox = bbox.float()
         return img, phrase, bbox 
