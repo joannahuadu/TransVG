@@ -190,8 +190,8 @@ def main(args):
         raise ValueError('Lr scheduler type not supportted ')
 
     # build dataset
-    dataset_train = build_dataset('train', args)
-    dataset_val   = build_dataset('val', args)
+    dataset_train = build_dataset('trainval', args)
+    dataset_val   = build_dataset('test', args)
     ## note certain dataset does not have 'test' set:
     ## 'unc': {'train', 'val', 'trainval', 'testA', 'testB'}
     # dataset_test  = build_dataset('test', args)

@@ -17,7 +17,7 @@ def make_transforms(args, image_set, is_onestage=False):
 
     imsize = args.imsize
 
-    if image_set == 'train':
+    if image_set in ['train', 'trainval']:
         scales = []
         if args.aug_scale:
             for i in range(7):
@@ -59,15 +59,18 @@ def make_transforms(args, image_set, is_onestage=False):
 
 
 def build_dataset(split, args):
-    # return TransVGDataset(data_root=args.data_root,
-    #                     split_root=args.split_root,
-    #                     dataset=args.dataset,
-    #                     split=split,
-    #                     transform=make_transforms(args, split),
-    #                     max_query_len=args.max_query_len)
-    return TransVGDatasetRS(data_root=args.data_root,
-                        split_root=args.split_root,
-                        dataset=args.dataset,
-                        split=split,
-                        transform=make_transforms(args, split),
-                        max_query_len=args.max_query_len)
+    if args.dataset == 'dior_rsvg': 
+        return TransVGDatasetRS(data_root=args.data_root,
+                    split_root=args.split_root,
+                    dataset=args.dataset,
+                    split=split,
+                    transform=make_transforms(args, split),
+                    max_query_len=args.max_query_len)
+    else:
+        return TransVGDataset(data_root=args.data_root,
+                            split_root=args.split_root,
+                            dataset=args.dataset,
+                            split=split,
+                            transform=make_transforms(args, split),
+                            max_query_len=args.max_query_len)
+
